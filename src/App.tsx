@@ -355,6 +355,16 @@ function App() {
         </section>
       ) : null}
 
+      <section className="panel seo-copy" aria-label="About this tool">
+        <h2>Online Audio Silence Remover for Speech</h2>
+        <p>
+          Silence-Aware Audio Trimmer is a browser-based tool for podcasters, educators, and
+          creators who need faster speech editing. It detects pauses using RMS amplitude analysis,
+          shortens silence to natural timing, and exports processed WAV locally. Your audio stays on
+          your device because all processing is client-side with Web Audio API.
+        </p>
+      </section>
+
       <p className="footer-note">Made by Azamat Altymyshev</p>
     </div>
   )

@@ -1,0 +1,4 @@
+User-agent: *
+Allow: /
+
+Sitemap: https://azamat60.github.io/audio-trimmer/sitemap.xml
