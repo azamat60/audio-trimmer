@@ -1,0 +1,23 @@
+{
+  "name": "Silence-Aware Audio Trimmer",
+  "short_name": "Audio Trimmer",
+  "description": "Browser-based silence remover and audio trimmer for speech recordings.",
+  "start_url": "/audio-trimmer/",
+  "display": "standalone",
+  "background_color": "#081015",
+  "theme_color": "#081015",
+  "icons": [
+    {
+      "src": "/icon-192.svg",
+      "sizes": "192x192",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    },
+    {
+      "src": "/icon-512.svg",
+      "sizes": "512x512",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}
