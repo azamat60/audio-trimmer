@@ -3,18 +3,26 @@
 }
 
 html {
+  min-height: 100%;
+  background-color: #081015;
   background: radial-gradient(circle at 15% 5%, #1b2432 0%, #0a0f14 48%, #081015 100%);
+  overscroll-behavior-y: none;
 }
 
 body {
   margin: 0;
+  min-height: 100%;
   min-width: 320px;
+  background-color: #081015;
   background: radial-gradient(circle at 15% 5%, #1b2432 0%, #0a0f14 48%, #081015 100%);
   font-family: 'IBM Plex Sans', 'Trebuchet MS', 'Segoe UI', sans-serif;
   line-height: 1.4;
+  overscroll-behavior-y: none;
 }
 
 #root {
+  width: 100%;
   min-height: 100vh;
+  background-color: #081015;
   background: radial-gradient(circle at 15% 5%, #1b2432 0%, #0a0f14 48%, #081015 100%);
 }

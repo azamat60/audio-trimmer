@@ -5,7 +5,9 @@ import { processAudioBuffer } from './audio/pipeline'
 import { buildEditPlan } from './audio/rendering'
 import type { ProcessingResult } from './audio/types'
 import { audioBufferToWavBlob } from './audio/wav'
+import { AudioPlayer } from './components/AudioPlayer'
 import { WaveformView } from './components/WaveformView'
+import { FiDownload, FiRefreshCw, FiScissors, FiUploadCloud } from 'react-icons/fi'
 
 interface ProgressState {
   stage: string
@@ -220,7 +222,10 @@ function App() {
 
       <section className="panel">
         <label className="file-input">
-          <span>Upload audio (WAV/MP3)</span>
+          <span className="label-with-icon">
+            <FiUploadCloud aria-hidden="true" />
+            Upload audio (WAV/MP3)
+          </span>
           <input type="file" accept="audio/wav,audio/mp3,audio/mpeg" onChange={onFileChange} />
         </label>
 
@@ -255,18 +260,21 @@ function App() {
         </div>
 
         <div className="button-row">
-          <button onClick={onProcess} disabled={!originalBuffer || isProcessing}>
+          <button className="btn-action" onClick={onProcess} disabled={!originalBuffer || isProcessing}>
+            <FiScissors aria-hidden="true" />
             {isProcessing ? 'Processing...' : 'Process audio'}
           </button>
-          <button className="ghost" onClick={onReset}>
+          <button className="ghost btn-neutral" onClick={onReset}>
+            <FiRefreshCw aria-hidden="true" />
             Reset
           </button>
           <a
-            className={`download ${processedUrl ? '' : 'disabled'}`}
+            className={`download btn-download ${processedUrl ? '' : 'disabled'}`}
             href={processedUrl || '#'}
             download={fileName ? `${fileName.replace(/\.[^.]+$/, '')}-trimmed.wav` : 'trimmed.wav'}
             aria-disabled={!processedUrl}
           >
+            <FiDownload aria-hidden="true" />
             Download processed WAV
           </a>
         </div>
@@ -282,41 +290,42 @@ function App() {
         {error ? <p className="error">{error}</p> : null}
       </section>
 
-      <section className="panel split">
-        <article>
+      <section className="panel split players-panel">
+        <article className="player-card player-original">
           <h2>Original</h2>
-          <audio
-            controls
-            src={originalUrl || undefined}
+          <AudioPlayer
             ref={originalAudioRef}
-            onTimeUpdate={(event) => setCursorTime(event.currentTarget.currentTime)}
-            onSeeked={(event) => setCursorTime(event.currentTarget.currentTime)}
+            src={originalUrl || undefined}
+            accent="mint"
+            emptyText="Load a file to preview the original audio."
+            onTimeUpdate={setCursorTime}
           />
           {originalBuffer ? (
             <p className="meta">
               {originalBuffer.duration.toFixed(2)}s, {originalBuffer.numberOfChannels} channel(s),{' '}
               {originalBuffer.sampleRate}Hz
             </p>
-          ) : (
-            <p className="meta">Load a file to preview the original audio.</p>
-          )}
+          ) : null}
         </article>
 
-        <article>
+        <article className="player-card player-processed">
           <h2>Processed</h2>
-          <audio controls src={processedUrl || undefined} ref={processedAudioRef} />
+          <AudioPlayer
+            ref={processedAudioRef}
+            src={processedUrl || undefined}
+            accent="blue"
+            emptyText="Run processing to enable A/B playback."
+          />
           {processed ? (
             <p className="meta">
               {processed.durationAfter.toFixed(2)}s, removed {processed.removedSeconds.toFixed(2)}s
             </p>
-          ) : (
-            <p className="meta">Run processing to enable A/B playback.</p>
-          )}
+          ) : null}
         </article>
       </section>
 
       {processed ? (
-        <section className="panel">
+        <section className="panel waveform-panel">
           <h2>Waveform + removed regions</h2>
           <WaveformView
             monoBuffer={processed.monoBuffer}
@@ -346,7 +355,7 @@ function App() {
         </section>
       ) : null}
 
-      <p className="footer-note">Azamat Altymyshev</p>
+      <p className="footer-note">Made by Azamat Altymyshev</p>
     </div>
   )
 }
