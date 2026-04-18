@@ -1,5 +1,5 @@
 import { useMemo, useRef, useState } from 'react'
-import type { ChangeEvent } from 'react'
+import type { ChangeEvent, DragEvent } from 'react'
 import './App.css'
 import { processAudioBuffer } from './audio/pipeline'
 import { buildEditPlan } from './audio/rendering'
@@ -7,7 +7,7 @@ import type { ProcessingResult } from './audio/types'
 import { audioBufferToWavBlob } from './audio/wav'
 import { AudioPlayer } from './components/AudioPlayer'
 import { WaveformView } from './components/WaveformView'
-import { FiDownload, FiRefreshCw, FiScissors, FiUploadCloud } from 'react-icons/fi'
+import { FiDownload, FiMusic, FiRefreshCw, FiScissors, FiUploadCloud } from 'react-icons/fi'
 
 interface ProgressState {
   stage: string
@@ -25,6 +25,7 @@ function App() {
   const audioContextRef = useRef<AudioContext | null>(null)
   const originalAudioRef = useRef<HTMLAudioElement | null>(null)
   const processedAudioRef = useRef<HTMLAudioElement | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const [fileName, setFileName] = useState<string>('')
   const [originalBuffer, setOriginalBuffer] = useState<AudioBuffer | null>(null)
@@ -42,25 +43,19 @@ function App() {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string>('')
   const [cursorTime, setCursorTime] = useState(0)
+  const [isDragging, setIsDragging] = useState(false)
 
   const stats = useMemo(() => {
-    if (!processed) {
-      return null
-    }
-
+    if (!processed) return null
     const total = processed.segments.length
     const silence = processed.segments.filter((s) => s.type === 'silence').length
     const soft = processed.segments.filter((s) => s.type === 'soft-silence').length
     const speech = processed.segments.filter((s) => s.type === 'speech').length
-
     return { total, silence, soft, speech }
   }, [processed])
 
   const editPlan = useMemo(() => {
-    if (!processed) {
-      return { keepRegions: [], cutRegions: [] }
-    }
-
+    if (!processed) return { keepRegions: [], cutRegions: [] }
     return buildEditPlan(
       processed.segments,
       processed.sampleRate,
@@ -72,32 +67,21 @@ function App() {
   const cutRegions = editPlan.cutRegions
 
   const getAudioContext = (): AudioContext => {
-    if (!audioContextRef.current) {
-      audioContextRef.current = new AudioContext()
-    }
+    if (!audioContextRef.current) audioContextRef.current = new AudioContext()
     return audioContextRef.current
   }
 
   const clearProcessed = (): void => {
-    if (processedUrl) {
-      URL.revokeObjectURL(processedUrl)
-    }
+    if (processedUrl) URL.revokeObjectURL(processedUrl)
     setProcessed(null)
     setProcessedUrl('')
   }
 
-  const onFileChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
-    const file = event.target.files?.[0]
-    if (!file) {
-      return
-    }
-
+  const loadFile = async (file: File): Promise<void> => {
     setError('')
     clearProcessed()
 
-    if (originalUrl) {
-      URL.revokeObjectURL(originalUrl)
-    }
+    if (originalUrl) URL.revokeObjectURL(originalUrl)
 
     const typeAllowed = ACCEPTED_TYPES.includes(file.type) || file.type.startsWith('audio/')
     if (!typeAllowed) {
@@ -122,6 +106,25 @@ function App() {
     }
   }
 
+  const onFileChange = async (event: ChangeEvent<HTMLInputElement>): Promise<void> => {
+    const file = event.target.files?.[0]
+    if (file) await loadFile(file)
+  }
+
+  const onDragOver = (e: DragEvent<HTMLLabelElement>): void => {
+    e.preventDefault()
+    setIsDragging(true)
+  }
+
+  const onDragLeave = (): void => setIsDragging(false)
+
+  const onDrop = async (e: DragEvent<HTMLLabelElement>): Promise<void> => {
+    e.preventDefault()
+    setIsDragging(false)
+    const file = e.dataTransfer.files?.[0]
+    if (file) await loadFile(file)
+  }
+
   const onProcess = async (): Promise<void> => {
     if (!originalBuffer) {
       setError('Upload an audio file first.')
@@ -135,13 +138,8 @@ function App() {
     try {
       const result = await processAudioBuffer(
         originalBuffer,
-        {
-          silenceThreshold: controls.silenceThreshold,
-          minSilenceMs: controls.minSilenceMs,
-        },
-        ({ stage, value }) => {
-          setProgress({ stage, value })
-        },
+        { silenceThreshold: controls.silenceThreshold, minSilenceMs: controls.minSilenceMs },
+        ({ stage, value }) => setProgress({ stage, value }),
       )
 
       const processedBlob = audioBufferToWavBlob(result.processedBuffer)
@@ -160,20 +158,17 @@ function App() {
   const onReset = (): void => {
     setFileName('')
     setOriginalBuffer(null)
-    if (originalUrl) {
-      URL.revokeObjectURL(originalUrl)
-    }
+    if (originalUrl) URL.revokeObjectURL(originalUrl)
     setOriginalUrl('')
     clearProcessed()
     setProgress({ stage: 'Idle', value: 0 })
     setError('')
     setCursorTime(0)
+    if (fileInputRef.current) fileInputRef.current.value = ''
   }
 
   const mapOriginalToProcessedTime = (timeSeconds: number): number => {
-    if (!processed || editPlan.keepRegions.length === 0) {
-      return 0
-    }
+    if (!processed || editPlan.keepRegions.length === 0) return 0
 
     const sourceSample = Math.floor(timeSeconds * processed.sampleRate)
     let processedSamples = 0
@@ -183,10 +178,7 @@ function App() {
         processedSamples += region.endSample - region.startSample
         continue
       }
-      if (sourceSample < region.startSample) {
-        break
-      }
-
+      if (sourceSample < region.startSample) break
       processedSamples += sourceSample - region.startSample
       break
     }
@@ -196,17 +188,12 @@ function App() {
 
   const onWaveformSeek = (timeSeconds: number): void => {
     const original = originalAudioRef.current
-    if (!original) {
-      return
-    }
+    if (!original) return
 
     original.currentTime = timeSeconds
     setCursorTime(timeSeconds)
 
-    if (!processed || !processedAudioRef.current) {
-      return
-    }
-
+    if (!processed || !processedAudioRef.current) return
     processedAudioRef.current.currentTime = mapOriginalToProcessedTime(timeSeconds)
   }
 
@@ -214,25 +201,47 @@ function App() {
     <div className="app-shell">
       <div className="hero">
         <p className="eyebrow">Silence-Aware Audio Trimmer</p>
-        <h1>Speech cleanup in your browser, fully offline</h1>
+        <h1>Speech cleanup in your browser,&nbsp;fully offline</h1>
         <p className="hero-copy">
-          Raw signal analysis with RMS segmentation. No uploads, no transcription, no backend.
+          Raw signal analysis with RMS segmentation. No uploads, no transcription, no backend — your audio never leaves the device.
         </p>
       </div>
 
       <section className="panel">
-        <label className="file-input">
-          <span className="label-with-icon">
-            <FiUploadCloud aria-hidden="true" />
-            Upload audio (WAV/MP3)
-          </span>
-          <input type="file" accept="audio/wav,audio/mp3,audio/mpeg" onChange={onFileChange} />
+        <label
+          className={`upload-zone${isDragging ? ' dragging' : ''}${fileName ? ' has-file' : ''}`}
+          onDragOver={onDragOver}
+          onDragLeave={onDragLeave}
+          onDrop={onDrop}
+        >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="audio/wav,audio/mp3,audio/mpeg"
+            onChange={onFileChange}
+          />
+          <FiUploadCloud className="upload-icon" aria-hidden="true" />
+          {fileName ? (
+            <span className="file-badge">
+              <FiMusic size={13} aria-hidden="true" />
+              {fileName}
+            </span>
+          ) : (
+            <>
+              <span className="upload-title">Drop audio here or click to browse</span>
+              <span className="upload-hint">WAV or MP3 · processed locally, stays private</span>
+            </>
+          )}
         </label>
 
         <div className="controls-grid">
-          <label>
-            Silence threshold: <strong>{controls.silenceThreshold.toFixed(3)}</strong>
+          <div className="control-row">
+            <div className="control-header">
+              <label htmlFor="ctrl-threshold" className="control-label">Silence threshold</label>
+              <span className="control-value">{controls.silenceThreshold.toFixed(3)}</span>
+            </div>
             <input
+              id="ctrl-threshold"
               type="range"
               min={0.002}
               max={0.05}
@@ -242,11 +251,15 @@ function App() {
                 setControls((prev) => ({ ...prev, silenceThreshold: Number(e.target.value) }))
               }
             />
-          </label>
+          </div>
 
-          <label>
-            Min silence duration: <strong>{controls.minSilenceMs} ms</strong>
+          <div className="control-row">
+            <div className="control-header">
+              <label htmlFor="ctrl-min-silence" className="control-label">Min silence duration</label>
+              <span className="control-value">{controls.minSilenceMs} ms</span>
+            </div>
             <input
+              id="ctrl-min-silence"
               type="range"
               min={120}
               max={1200}
@@ -256,26 +269,26 @@ function App() {
                 setControls((prev) => ({ ...prev, minSilenceMs: Number(e.target.value) }))
               }
             />
-          </label>
+          </div>
         </div>
 
         <div className="button-row">
           <button className="btn-action" onClick={onProcess} disabled={!originalBuffer || isProcessing}>
             <FiScissors aria-hidden="true" />
-            {isProcessing ? 'Processing...' : 'Process audio'}
+            {isProcessing ? 'Processing…' : 'Process audio'}
           </button>
           <button className="ghost btn-neutral" onClick={onReset}>
             <FiRefreshCw aria-hidden="true" />
             Reset
           </button>
           <a
-            className={`download btn-download ${processedUrl ? '' : 'disabled'}`}
+            className={`download btn-download${processedUrl ? '' : ' disabled'}`}
             href={processedUrl || '#'}
             download={fileName ? `${fileName.replace(/\.[^.]+$/, '')}-trimmed.wav` : 'trimmed.wav'}
             aria-disabled={!processedUrl}
           >
             <FiDownload aria-hidden="true" />
-            Download processed WAV
+            Download WAV
           </a>
         </div>
 
@@ -302,8 +315,7 @@ function App() {
           />
           {originalBuffer ? (
             <p className="meta">
-              {originalBuffer.duration.toFixed(2)}s, {originalBuffer.numberOfChannels} channel(s),{' '}
-              {originalBuffer.sampleRate}Hz
+              {originalBuffer.duration.toFixed(2)}s · {originalBuffer.numberOfChannels}ch · {originalBuffer.sampleRate}Hz
             </p>
           ) : null}
         </article>
@@ -318,7 +330,7 @@ function App() {
           />
           {processed ? (
             <p className="meta">
-              {processed.durationAfter.toFixed(2)}s, removed {processed.removedSeconds.toFixed(2)}s
+              {processed.durationAfter.toFixed(2)}s · removed {processed.removedSeconds.toFixed(2)}s
             </p>
           ) : null}
         </article>
@@ -345,12 +357,30 @@ function App() {
         <section className="panel metrics">
           <h2>Segmentation summary</h2>
           <div className="metric-grid">
-            <p>Segments: {stats.total}</p>
-            <p>Speech: {stats.speech}</p>
-            <p>Silence: {stats.silence}</p>
-            <p>Soft-silence: {stats.soft}</p>
-            <p>Before: {processed.durationBefore.toFixed(2)}s</p>
-            <p>After: {processed.durationAfter.toFixed(2)}s</p>
+            <div className="stat-card">
+              <span className="stat-value">{stats.total}</span>
+              <span className="stat-label">Segments</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.speech}</span>
+              <span className="stat-label">Speech</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.silence}</span>
+              <span className="stat-label">Silence</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{stats.soft}</span>
+              <span className="stat-label">Soft-silence</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{processed.durationBefore.toFixed(1)}s</span>
+              <span className="stat-label">Before</span>
+            </div>
+            <div className="stat-card">
+              <span className="stat-value">{processed.durationAfter.toFixed(1)}s</span>
+              <span className="stat-label">After</span>
+            </div>
           </div>
         </section>
       ) : null}

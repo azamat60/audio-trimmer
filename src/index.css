@@ -1,11 +1,12 @@
-* {
+@import url('https://fonts.googleapis.com/css2?family=Inter:ital,opsz,wght@0,14..32,400..700;1,14..32,400..700&display=swap');
+
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
 html {
   min-height: 100%;
-  background-color: #081015;
-  background: radial-gradient(circle at 15% 5%, #1b2432 0%, #0a0f14 48%, #081015 100%);
+  background: #07090f;
   overscroll-behavior-y: none;
 }
 
@@ -13,16 +14,16 @@ body {
   margin: 0;
   min-height: 100%;
   min-width: 320px;
-  background-color: #081015;
-  background: radial-gradient(circle at 15% 5%, #1b2432 0%, #0a0f14 48%, #081015 100%);
-  font-family: 'IBM Plex Sans', 'Trebuchet MS', 'Segoe UI', sans-serif;
-  line-height: 1.4;
+  background: radial-gradient(ellipse 90% 60% at 50% -5%, rgba(15,35,65,0.7) 0%, transparent 75%), #07090f;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  font-feature-settings: 'cv11', 'ss01';
+  line-height: 1.5;
+  color: #e2eeff;
+  -webkit-font-smoothing: antialiased;
   overscroll-behavior-y: none;
 }
 
 #root {
   width: 100%;
   min-height: 100vh;
-  background-color: #081015;
-  background: radial-gradient(circle at 15% 5%, #1b2432 0%, #0a0f14 48%, #081015 100%);
 }
